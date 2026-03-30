@@ -1,8 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Frame Editor</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    background: #111;
+    color: white;
+}
+
+.container {
+    position: relative;
+    width: 90%;
+    max-width: 600px;
+    aspect-ratio: 5/4;
+    margin: 20px auto;
+    overflow: hidden;
+    border: 2px solid #444;
+    background: black;
+    touch-action: none; /* IMPORTANT */
+}
+
+/* USER IMAGE */
+#userImage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    cursor: grab;
+}
+
+/* FRAME */
+#frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    z-index: 2;
+    pointer-events: none;
+}
+
+input[type="range"] {
+    width: 80%;
+}
+
+button {
+    padding: 10px 20px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Photo Frame Editor</h2>
+
+<input type="file" id="upload" accept="image/*">
+
+<div class="container" id="container">
+    <img id="userImage">
+    <img id="frame" src="KFCFrame2.png">
+</div>
+
+<br>
+
+Zoom:
+<input type="range" id="zoom" min="0.2" max="3" step="0.01" value="1">
+
+<br><br>
+
+Horizontal Move:
+<input type="range" id="moveX" min="-1000" max="1000" value="0">
+
+<br><br>
+
+Vertical Move:
+<input type="range" id="moveY" min="-1000" max="1000" value="0">
+
+<br><br>
+
+<button onclick="downloadImage()">Download</button>
+
+<canvas id="canvas" width="3000" height="2400" style="display:none;"></canvas>
+
 <script>
 const upload = document.getElementById("upload");
 const userImage = document.getElementById("userImage");
 const frame = document.getElementById("frame");
 const zoom = document.getElementById("zoom");
+const moveX = document.getElementById("moveX");
+const moveY = document.getElementById("moveY");
 
 let scale = 1;
 let posX = 0, posY = 0;
@@ -10,7 +107,7 @@ let dragging = false;
 let startX, startY;
 let initialDistance = null;
 
-// Upload image
+// Upload
 upload.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -18,9 +115,7 @@ upload.addEventListener("change", (e) => {
     }
 });
 
-// =====================
-// 🖱️ DESKTOP DRAG
-// =====================
+// ================= DESKTOP DRAG =================
 userImage.addEventListener("mousedown", (e) => {
     dragging = true;
     startX = e.clientX - posX;
@@ -36,9 +131,7 @@ document.addEventListener("mousemove", (e) => {
     updateTransform();
 });
 
-// =====================
-// 📱 TOUCH DRAG
-// =====================
+// ================= MOBILE TOUCH =================
 userImage.addEventListener("touchstart", (e) => {
     if (e.touches.length === 1) {
         dragging = true;
@@ -46,7 +139,6 @@ userImage.addEventListener("touchstart", (e) => {
         startY = e.touches[0].clientY - posY;
     }
 
-    // pinch start
     if (e.touches.length === 2) {
         initialDistance = getDistance(e.touches);
     }
@@ -55,14 +147,12 @@ userImage.addEventListener("touchstart", (e) => {
 userImage.addEventListener("touchmove", (e) => {
     e.preventDefault();
 
-    // drag
     if (e.touches.length === 1 && dragging) {
         posX = e.touches[0].clientX - startX;
         posY = e.touches[0].clientY - startY;
         updateTransform();
     }
 
-    // pinch zoom
     if (e.touches.length === 2) {
         const newDistance = getDistance(e.touches);
         if (initialDistance) {
@@ -81,34 +171,39 @@ document.addEventListener("touchend", () => {
     initialDistance = null;
 });
 
-// =====================
-// 📏 GET DISTANCE (PINCH)
-// =====================
+// ================= DISTANCE =================
 function getDistance(touches) {
     let dx = touches[0].clientX - touches[1].clientX;
     let dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// =====================
-// 🎚️ SLIDER ZOOM
-// =====================
+// ================= SLIDERS =================
 zoom.addEventListener("input", () => {
     scale = parseFloat(zoom.value);
     updateTransform();
 });
 
-// =====================
-// 🔄 UPDATE TRANSFORM
-// =====================
+moveX.addEventListener("input", () => {
+    posX = parseInt(moveX.value);
+    updateTransform();
+});
+
+moveY.addEventListener("input", () => {
+    posY = parseInt(moveY.value);
+    updateTransform();
+});
+
+// ================= TRANSFORM =================
 function updateTransform() {
     userImage.style.transform =
         `translate(${posX}px, ${posY}px) scale(${scale})`;
+
+    moveX.value = posX;
+    moveY.value = posY;
 }
 
-// =====================
-// DOWNLOAD (same as yours)
-// =====================
+// ================= DOWNLOAD =================
 function waitForImage(img) {
     return new Promise((resolve) => {
         if (img.complete) resolve();
@@ -151,3 +246,6 @@ async function downloadImage() {
     }, "image/png");
 }
 </script>
+
+</body>
+</html>
