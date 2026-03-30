@@ -1,72 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Photo Frame Editor</title>
-
-<style>
-body {
-    font-family: Arial;
-    text-align: center;
-    background: #111;
-    color: white;
-}
-.container {
-    position: relative;
-    width: 600px;
-    height: 480px; /* 5:4 ratio */
-    margin: 20px auto;
-    overflow: hidden;
-    border: 2px solid #444;
-    background: black;
-}
-
-/* USER IMAGE */
-#userImage {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-    cursor: grab;
-}
-
-/* FRAME (FIXED) */
-#frame {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: fill; /* KEY FIX */
-    z-index: 2;
-    pointer-events: none;
-    display: block;
-}
-</style>
-
-</head>
-<body>
-
-<h2>Photo Frame Editor</h2>
-
-<input type="file" id="upload" accept="image/*">
-
-<div class="container" id="container">
-    <img id="userImage">
-    <img id="frame" src="KFCFrame2.png">
-</div>
-
-<br>
-Zoom: <input type="range" id="zoom" min="0.2" max="3" step="0.01" value="1">
-
-<br><br>
-<button onclick="downloadImage()">Download</button>
-
-<canvas id="canvas" width="3000" height="2400" style="display:none;"></canvas>
-
 <script>
 const upload = document.getElementById("upload");
 const userImage = document.getElementById("userImage");
@@ -77,20 +8,19 @@ let scale = 1;
 let posX = 0, posY = 0;
 let dragging = false;
 let startX, startY;
+let initialDistance = null;
 
 // Upload image
 upload.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (file) {
         userImage.src = URL.createObjectURL(file);
-        userImage.onload = () => {
-            userImage.style.width = "100%";
-            userImage.style.height = "auto";
-        };
     }
 });
 
-// Drag
+// =====================
+// 🖱️ DESKTOP DRAG
+// =====================
 userImage.addEventListener("mousedown", (e) => {
     dragging = true;
     startX = e.clientX - posX;
@@ -106,17 +36,79 @@ document.addEventListener("mousemove", (e) => {
     updateTransform();
 });
 
-// Zoom
+// =====================
+// 📱 TOUCH DRAG
+// =====================
+userImage.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+        dragging = true;
+        startX = e.touches[0].clientX - posX;
+        startY = e.touches[0].clientY - posY;
+    }
+
+    // pinch start
+    if (e.touches.length === 2) {
+        initialDistance = getDistance(e.touches);
+    }
+});
+
+userImage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+
+    // drag
+    if (e.touches.length === 1 && dragging) {
+        posX = e.touches[0].clientX - startX;
+        posY = e.touches[0].clientY - startY;
+        updateTransform();
+    }
+
+    // pinch zoom
+    if (e.touches.length === 2) {
+        const newDistance = getDistance(e.touches);
+        if (initialDistance) {
+            let zoomFactor = newDistance / initialDistance;
+            scale *= zoomFactor;
+            scale = Math.max(0.2, Math.min(scale, 3));
+            zoom.value = scale;
+            updateTransform();
+            initialDistance = newDistance;
+        }
+    }
+}, { passive: false });
+
+document.addEventListener("touchend", () => {
+    dragging = false;
+    initialDistance = null;
+});
+
+// =====================
+// 📏 GET DISTANCE (PINCH)
+// =====================
+function getDistance(touches) {
+    let dx = touches[0].clientX - touches[1].clientX;
+    let dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// =====================
+// 🎚️ SLIDER ZOOM
+// =====================
 zoom.addEventListener("input", () => {
     scale = parseFloat(zoom.value);
     updateTransform();
 });
 
+// =====================
+// 🔄 UPDATE TRANSFORM
+// =====================
 function updateTransform() {
-    userImage.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+    userImage.style.transform =
+        `translate(${posX}px, ${posY}px) scale(${scale})`;
 }
 
-// ✅ WAIT FOR IMAGE LOAD FUNCTION
+// =====================
+// DOWNLOAD (same as yours)
+// =====================
 function waitForImage(img) {
     return new Promise((resolve) => {
         if (img.complete) resolve();
@@ -124,7 +116,6 @@ function waitForImage(img) {
     });
 }
 
-// Download
 async function downloadImage() {
     if (!userImage.src) {
         alert("Upload image first!");
@@ -133,10 +124,8 @@ async function downloadImage() {
 
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-
     const container = document.getElementById("container");
 
-    // wait for both images
     await waitForImage(userImage);
     await waitForImage(frame);
 
@@ -152,11 +141,8 @@ async function downloadImage() {
     const imgY = posY * scaleY;
 
     ctx.drawImage(userImage, imgX, imgY, imgW, imgH);
-
-    // draw frame on top
     ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
 
-    // ✅ SAFER DOWNLOAD METHOD
     canvas.toBlob((blob) => {
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
@@ -165,6 +151,3 @@ async function downloadImage() {
     }, "image/png");
 }
 </script>
-
-</body>
-</html>
