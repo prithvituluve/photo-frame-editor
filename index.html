@@ -12,7 +12,9 @@ body {
     background: #111;
     color: white;
 }
-
+#userImage {
+    transform-origin: top left;
+}
 .container {
     position: relative;
     width: 90%;
@@ -109,27 +111,41 @@ async function downloadImage() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 🔥 ORIGINAL IMAGE SIZE
-    const naturalW = userImage.naturalWidth;
-    const naturalH = userImage.naturalHeight;
+    const imgW = userImage.naturalWidth;
+    const imgH = userImage.naturalHeight;
 
-    // container ratio
-    const containerW = container.clientWidth;
-    const containerH = container.clientHeight;
+    const boxW = container.clientWidth;
+    const boxH = container.clientHeight;
 
-    // scale from preview → canvas
-    const scaleX = canvas.width / containerW;
-    const scaleY = canvas.height / containerH;
+    // 🔥 simulate object-fit: cover
+    const scaleCover = Math.max(boxW / imgW, boxH / imgH);
 
-    // 🔥 match CSS scale correctly
-    const drawW = naturalW * scale * (containerW / naturalW) * scaleX;
-    const drawH = naturalH * scale * (containerH / naturalH) * scaleY;
+    const baseW = imgW * scaleCover;
+    const baseH = imgH * scaleCover;
 
-    const drawX = posX * scaleX;
-    const drawY = posY * scaleY;
+    // center like CSS cover
+    let baseX = (boxW - baseW) / 2;
+    let baseY = (boxH - baseH) / 2;
 
-    // draw user image
-    ctx.drawImage(userImage, drawX, drawY, drawW, drawH);
+    // apply user zoom
+    const finalW = baseW * scale;
+    const finalH = baseH * scale;
+
+    // apply position (drag)
+    const finalX = (baseX * scale + posX);
+    const finalY = (baseY * scale + posY);
+
+    // convert to canvas scale
+    const scaleX = canvas.width / boxW;
+    const scaleY = canvas.height / boxH;
+
+    ctx.drawImage(
+        userImage,
+        finalX * scaleX,
+        finalY * scaleY,
+        finalW * scaleX,
+        finalH * scaleY
+    );
 
     // draw frame
     ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
