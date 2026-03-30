@@ -96,6 +96,131 @@ Vertical Move:
 <canvas id="canvas" width="3000" height="2400" style="display:none;"></canvas>
 
 <script>
+const upload = document.getElementById("upload");
+const userImage = document.getElementById("userImage");
+const frame = document.getElementById("frame");
+const zoom = document.getElementById("zoom");
+const moveX = document.getElementById("moveX");
+const moveY = document.getElementById("moveY");
+
+let scale = 1;
+let posX = 0, posY = 0;
+let dragging = false;
+let startX, startY;
+let initialDistance = null;
+
+// ================= UPLOAD =================
+upload.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        userImage.src = URL.createObjectURL(file);
+
+        // reset position
+        posX = 0;
+        posY = 0;
+        scale = 1;
+        zoom.value = 1;
+        updateTransform();
+    }
+});
+
+// ================= DESKTOP DRAG =================
+userImage.addEventListener("mousedown", (e) => {
+    dragging = true;
+    startX = e.clientX - posX;
+    startY = e.clientY - posY;
+});
+
+document.addEventListener("mouseup", () => dragging = false);
+
+document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    posX = e.clientX - startX;
+    posY = e.clientY - startY;
+    updateTransform();
+});
+
+// ================= MOBILE TOUCH =================
+userImage.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+        dragging = true;
+        startX = e.touches[0].clientX - posX;
+        startY = e.touches[0].clientY - posY;
+    }
+
+    if (e.touches.length === 2) {
+        initialDistance = getDistance(e.touches);
+    }
+});
+
+userImage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+
+    if (e.touches.length === 1 && dragging) {
+        posX = e.touches[0].clientX - startX;
+        posY = e.touches[0].clientY - startY;
+        updateTransform();
+    }
+
+    if (e.touches.length === 2) {
+        const newDistance = getDistance(e.touches);
+        if (initialDistance) {
+            let zoomFactor = newDistance / initialDistance;
+            scale *= zoomFactor;
+            scale = Math.max(0.2, Math.min(scale, 3));
+            zoom.value = scale;
+            updateTransform();
+            initialDistance = newDistance;
+        }
+    }
+}, { passive: false });
+
+document.addEventListener("touchend", () => {
+    dragging = false;
+    initialDistance = null;
+});
+
+// ================= DISTANCE =================
+function getDistance(touches) {
+    let dx = touches[0].clientX - touches[1].clientX;
+    let dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// ================= SLIDERS =================
+zoom.addEventListener("input", () => {
+    scale = parseFloat(zoom.value);
+    updateTransform();
+});
+
+moveX.addEventListener("input", () => {
+    posX = parseInt(moveX.value);
+    updateTransform();
+});
+
+moveY.addEventListener("input", () => {
+    posY = parseInt(moveY.value);
+    updateTransform();
+});
+
+// ================= TRANSFORM =================
+function updateTransform() {
+    userImage.style.transform =
+        `translate(${posX}px, ${posY}px) scale(${scale})`;
+
+    moveX.value = posX;
+    moveY.value = posY;
+}
+
+// ================= IMAGE LOAD =================
+function waitForImage(img) {
+    return new Promise((resolve) => {
+        if (img.complete) resolve();
+        else img.onload = resolve;
+    });
+}
+
+// ================= DOWNLOAD (FIXED) =================
 async function downloadImage() {
     if (!userImage.src) {
         alert("Upload image first!");
@@ -117,25 +242,20 @@ async function downloadImage() {
     const boxW = container.clientWidth;
     const boxH = container.clientHeight;
 
-    // 🔥 simulate object-fit: cover
     const scaleCover = Math.max(boxW / imgW, boxH / imgH);
 
     const baseW = imgW * scaleCover;
     const baseH = imgH * scaleCover;
 
-    // center like CSS cover
     let baseX = (boxW - baseW) / 2;
     let baseY = (boxH - baseH) / 2;
 
-    // apply user zoom
     const finalW = baseW * scale;
     const finalH = baseH * scale;
 
-    // apply position (drag)
     const finalX = (baseX * scale + posX);
     const finalY = (baseY * scale + posY);
 
-    // convert to canvas scale
     const scaleX = canvas.width / boxW;
     const scaleY = canvas.height / boxH;
 
@@ -147,10 +267,8 @@ async function downloadImage() {
         finalH * scaleY
     );
 
-    // draw frame
     ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
 
-    // download
     canvas.toBlob((blob) => {
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
